@@ -121,56 +121,59 @@ export default function ScrollHero() {
 
     // Preload all frames
     const preloadImages = () => {
+      const onImageLoadComplete = () => {
+        imagesLoaded++
+        setLoadingProgress(Math.round((imagesLoaded / frameCount) * 100))
+
+        if (imagesLoaded === frameCount) {
+          // Render first frame
+          render(1)
+
+          // Minimum loader display time (2.5 seconds from page load)
+          const minDisplayTime = 2500
+          const elapsedTime = performance.now()
+          const remainingTime = Math.max(0, minDisplayTime - elapsedTime)
+
+          setTimeout(() => {
+            // Kill the rolling animation
+            if (rollingAnimation) rollingAnimation.kill()
+            loaderTimeline.kill()
+
+            // Nice exit animation - text rolls out and scales up
+            const exitTimeline = gsap.timeline({
+              onComplete: () => {
+                if (loaderSplit) loaderSplit.revert()
+                setIsLoaded(true)
+                // Trigger the hero intro animation
+                if (playIntroAnimation) playIntroAnimation()
+              },
+            })
+
+            exitTimeline
+              // Roll each character forward and out
+              .to(loaderSplit?.chars || [], {
+                rotateX: 90,
+                opacity: 0,
+                scale: 1.2,
+                duration: 0.5,
+                stagger: 0.04,
+                ease: 'power2.in',
+              })
+              // Fade out the white background
+              .to(loaderRef.current, {
+                opacity: 0,
+                duration: 0.6,
+                ease: 'power2.inOut',
+              }, '-=0.2')
+          }, remainingTime)
+        }
+      }
+
       for (let i = 1; i <= frameCount; i++) {
         const img = new Image()
+        img.onload = onImageLoadComplete
+        img.onerror = onImageLoadComplete // Count failed images too to prevent getting stuck
         img.src = framePath(i)
-        img.onload = () => {
-          imagesLoaded++
-          setLoadingProgress(Math.round((imagesLoaded / frameCount) * 100))
-
-          if (imagesLoaded === frameCount) {
-            // Render first frame
-            render(1)
-
-            // Minimum loader display time (2.5 seconds from page load)
-            const minDisplayTime = 2500
-            const elapsedTime = performance.now()
-            const remainingTime = Math.max(0, minDisplayTime - elapsedTime)
-
-            setTimeout(() => {
-              // Kill the rolling animation
-              if (rollingAnimation) rollingAnimation.kill()
-              loaderTimeline.kill()
-
-              // Nice exit animation - text rolls out and scales up
-              const exitTimeline = gsap.timeline({
-                onComplete: () => {
-                  if (loaderSplit) loaderSplit.revert()
-                  setIsLoaded(true)
-                  // Trigger the hero intro animation
-                  if (playIntroAnimation) playIntroAnimation()
-                },
-              })
-
-              exitTimeline
-                // Roll each character forward and out
-                .to(loaderSplit?.chars || [], {
-                  rotateX: 90,
-                  opacity: 0,
-                  scale: 1.2,
-                  duration: 0.5,
-                  stagger: 0.04,
-                  ease: 'power2.in',
-                })
-                // Fade out the white background
-                .to(loaderRef.current, {
-                  opacity: 0,
-                  duration: 0.6,
-                  ease: 'power2.inOut',
-                }, '-=0.2')
-            }, remainingTime)
-          }
-        }
         images.push(img)
       }
     }
