@@ -88,10 +88,11 @@ export default function ScrollHero() {
 
     // Style each character for 3D rolling effect
     if (loaderSplit) {
-      loaderSplit.chars.forEach((char: HTMLElement) => {
-        char.style.display = 'inline-block'
-        char.style.transformOrigin = 'center center -20px'
-        char.style.transformStyle = 'preserve-3d'
+      loaderSplit.chars.forEach((char) => {
+        const el = char as HTMLElement
+        el.style.display = 'inline-block'
+        el.style.transformOrigin = 'center center -20px'
+        el.style.transformStyle = 'preserve-3d'
       })
     }
 
@@ -203,10 +204,11 @@ export default function ScrollHero() {
 
       // Style each character for 3D rolling effect
       if (heroSplit) {
-        heroSplit.chars.forEach((char: HTMLElement) => {
-          char.style.display = 'inline-block'
-          char.style.transformOrigin = 'center center -20px'
-          char.style.transformStyle = 'preserve-3d'
+        heroSplit.chars.forEach((char) => {
+          const el = char as HTMLElement
+          el.style.display = 'inline-block'
+          el.style.transformOrigin = 'center center -20px'
+          el.style.transformStyle = 'preserve-3d'
         })
         // Set initial state - rotated back and invisible
         gsap.set(heroSplit.chars, { rotateX: -90, opacity: 0 })
