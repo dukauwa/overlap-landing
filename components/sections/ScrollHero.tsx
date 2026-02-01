@@ -38,9 +38,13 @@ export default function ScrollHero() {
     let imagesLoaded = 0
     let playIntroAnimation: (() => void) | null = null
 
-    // Set canvas size to match window
+    // Detect mobile for optimizations
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768
+
+    // Set canvas size to match window - limit DPR on mobile for performance
     const updateCanvasSize = () => {
-      const dpr = window.devicePixelRatio || 1
+      // Cap DPR at 2 on mobile for better performance
+      const dpr = isMobile ? Math.min(window.devicePixelRatio || 1, 2) : (window.devicePixelRatio || 1)
       canvas.width = window.innerWidth * dpr
       canvas.height = window.innerHeight * dpr
       canvas.style.width = `${window.innerWidth}px`
@@ -50,32 +54,46 @@ export default function ScrollHero() {
 
     updateCanvasSize()
 
-    // Render function
+    // Cache for render calculations
+    let lastRenderedIndex = -1
+    let rafId: number | null = null
+
+    // Optimized render function with requestAnimationFrame
     const render = (index: number) => {
-      const img = images[Math.floor(index) - 1]
+      const frameIdx = Math.floor(index)
+
+      // Skip if same frame (prevents redundant draws)
+      if (frameIdx === lastRenderedIndex) return
+      lastRenderedIndex = frameIdx
+
+      const img = images[frameIdx - 1]
       if (img && img.complete) {
-        const dpr = window.devicePixelRatio || 1
-        context.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr)
+        // Use RAF for smoother rendering
+        if (rafId) cancelAnimationFrame(rafId)
+        rafId = requestAnimationFrame(() => {
+          const dpr = isMobile ? Math.min(window.devicePixelRatio || 1, 2) : (window.devicePixelRatio || 1)
+          context.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr)
 
-        // Calculate scaling to cover the canvas while maintaining aspect ratio
-        const canvasAspect = canvas.width / canvas.height
-        const imgAspect = img.width / img.height
+          // Calculate scaling to cover the canvas while maintaining aspect ratio
+          const canvasAspect = canvas.width / canvas.height
+          const imgAspect = img.width / img.height
 
-        let drawWidth, drawHeight, offsetX, offsetY
+          let drawWidth, drawHeight, offsetX, offsetY
 
-        if (canvasAspect > imgAspect) {
-          drawWidth = canvas.width / dpr
-          drawHeight = drawWidth / imgAspect
-          offsetX = 0
-          offsetY = (canvas.height / dpr - drawHeight) / 2
-        } else {
-          drawHeight = canvas.height / dpr
-          drawWidth = drawHeight * imgAspect
-          offsetX = (canvas.width / dpr - drawWidth) / 2
-          offsetY = 0
-        }
+          if (canvasAspect > imgAspect) {
+            drawWidth = canvas.width / dpr
+            drawHeight = drawWidth / imgAspect
+            offsetX = 0
+            offsetY = (canvas.height / dpr - drawHeight) / 2
+          } else {
+            drawHeight = canvas.height / dpr
+            drawWidth = drawHeight * imgAspect
+            offsetX = (canvas.width / dpr - drawWidth) / 2
+            offsetY = 0
+          }
 
-        context.drawImage(img, offsetX, offsetY, drawWidth, drawHeight)
+          context.drawImage(img, offsetX, offsetY, drawWidth, drawHeight)
+        })
       }
     }
 
@@ -184,6 +202,9 @@ export default function ScrollHero() {
     const setupAnimation = () => {
       const frameIndex = { value: 1 }
 
+      // More responsive scrub on mobile for snappier feel
+      const scrubValue = isMobile ? 0.3 : 0.5
+
       const scrollAnimation = gsap.to(frameIndex, {
         value: frameCount,
         snap: 'value',
@@ -192,8 +213,10 @@ export default function ScrollHero() {
           trigger: containerRef.current,
           start: 'top top',
           end: 'bottom bottom',
-          scrub: 0.5,
+          scrub: scrubValue,
           pin: false,
+          fastScrollEnd: true, // Helps with fast scroll momentum
+          preventOverlaps: true,
         },
         onUpdate: () => render(frameIndex.value),
       })
@@ -245,7 +268,8 @@ export default function ScrollHero() {
           trigger: containerRef.current,
           start: '20% top',
           end: '60% top',
-          scrub: 0.5, // Smooth scrubbing with 0.5s catch-up
+          scrub: scrubValue, // Use same scrub value for consistency
+          fastScrollEnd: true,
         },
       })
 
@@ -336,10 +360,11 @@ export default function ScrollHero() {
       {/* Navigation - always rendered, animated in after loader */}
       <Navigation />
 
-      <div className="sticky top-0 h-screen w-full overflow-hidden bg-black">
+      <div className="sticky top-0 h-screen w-full overflow-hidden bg-black" style={{ touchAction: 'pan-y' }}>
         <canvas
           ref={canvasRef}
           className="w-full h-full object-cover"
+          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
         />
 
         {/* Loading indicator */}
